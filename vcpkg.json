@@ -1,0 +1,21 @@
+{
+  "name" : "flame",
+  "version-string" : "1.0.0",
+  "builtin-baseline" : "c268e9fc37f847f47e3de42932abf24e3cf046ad",
+  "dependencies" : [ {
+    "name" : "boost-graph",
+    "version>=" : "1.83.0"
+  }, {
+    "name" : "boost",
+    "version>=" : "1.83.0#1"
+  }, {
+    "name" : "boost-geometry",
+    "version>=" : "1.83.0"
+  }, {
+    "name" : "opencv4",
+    "version>=" : "4.8.0#15"
+  }, {
+    "name" : "sophus",
+    "version>=" : "1.22.10"
+  } ]
+}

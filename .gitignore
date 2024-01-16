@@ -36,6 +36,7 @@ cppcheck.xml
 
 # Build artifacts.
 build
+cmake-build-*
 devel
 install
 logs
@@ -51,3 +52,5 @@ src/utilities/common_lcmtypes/src
 *.cproject
 *.project
 *.settings
+
+.idea
