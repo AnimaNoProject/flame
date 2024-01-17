@@ -37,11 +37,13 @@ set(FLAME_SRCS
   flame/utils/triangulator.h
   flame/utils/visualization.h)
 
-add_library(${PROJECT_NAME} SHARED ${FLAME_SRCS})
+add_library(${PROJECT_NAME} STATIC ${FLAME_SRCS})
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
-  ${Boost_LIBRARIES})
+  ${Boost_LIBRARIES}
+        fmt::fmt)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 
