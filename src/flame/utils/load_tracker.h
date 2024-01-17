@@ -22,9 +22,6 @@
 
 #pragma once
 
-#include <unistd.h>
-
-#include <asm/param.h> // For the Jiffy constant HZ.
 
 #include <chrono>
 #include <string>
@@ -146,7 +143,7 @@ inline void getSystemCPULoad(const SystemCPUMeasurement& prev,
 
   FLAME_ASSERT(cpu_sys_total >= cpu_sys_total_prev);
 
-  sys_load->cpu = (cpu_sys_total - cpu_sys_total_prev) / dt / HZ;
+  sys_load->cpu = (cpu_sys_total - cpu_sys_total_prev) / dt / 1000;
 
   if (sys_load->cpu < 0) {
     sys_load->cpu = 0;
@@ -327,7 +324,7 @@ class LoadTracker final {
   explicit LoadTracker(uint32_t pid = getpid()) :
       last_update_(),
       num_procs_(std::thread::hardware_concurrency()),
-      ticks_per_sec_(sysconf(_SC_CLK_TCK)),
+      ticks_per_sec_(100),
       pid_(pid),
       cpu_pid_meas_(),
       cpu_sys_meas_(),
