@@ -20,582 +20,555 @@
  * @date 2017-08-23 15:13:53 (Wed)
  */
 
-#include <unistd.h>
 
 #include <chrono>
-
-#include <boost/filesystem.hpp>
-
+#include <filesystem>
 #include <opencv2/highgui/highgui.hpp>
-
-#include "gtest/gtest.h"
-
+#include <gtest/gtest.h>
 #include "flame/utils/rasterization.h"
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 typedef std::chrono::high_resolution_clock hclock;
 typedef std::chrono::duration<float, std::milli> msec;
 
-namespace  {
+namespace {
 
 /**
  * \brief Compare bytes of two images.
  */
-bool cvCompare(const cv::Mat& a, const cv::Mat& b) {
-  const uint8_t* a_ptr = a.data;
-  const uint8_t* b_ptr = b.data;
+    bool cvCompare(const cv::Mat &a, const cv::Mat &b) {
+        const uint8_t *a_ptr = a.data;
+        const uint8_t *b_ptr = b.data;
 
-  int num_bytes = a.total() * a.elemSize();
-  for (int ii = 0; ii < num_bytes; ++ii) {
-    if (a_ptr[ii] != b_ptr[ii]) {
-      return false;
+        size_t num_bytes = a.total() * a.elemSize();
+        for (size_t ii = 0; ii < num_bytes; ++ii) {
+            if (a_ptr[ii] != b_ptr[ii]) {
+                return false;
+            }
+        }
+
+        return true;
     }
-  }
-
-  return true;
-}
 
 /**
  * \brief Compare gray scale values of two images.
  */
-bool cvCompareNear(const cv::Mat& a, const cv::Mat& b, float tol) {
-  const uint8_t* a_ptr = a.data;
-  const uint8_t* b_ptr = b.data;
+    bool cvCompareNear(const cv::Mat &a, const cv::Mat &b, float tol) {
+        const uint8_t *a_ptr = a.data;
+        const uint8_t *b_ptr = b.data;
 
-  if ((a.channels() != 1) || (b.channels() != 1)) {
-    return false;
-  }
+        if ((a.channels() != 1) || (b.channels() != 1)) {
+            return false;
+        }
 
-  if (a.rows != b.rows) {
-    return false;
-  }
+        if (a.rows != b.rows) {
+            return false;
+        }
 
-  if (a.cols != b.cols) {
-    return false;
-  }
+        if (a.cols != b.cols) {
+            return false;
+        }
 
-  for (int ii = 0; ii < a.rows; ++ii) {
-    for (int jj = 0; jj < a.cols; ++jj) {
-      float diff = static_cast<float>(a.at<uint8_t>(ii, jj)) -
-        static_cast<float>(b.at<uint8_t>(ii, jj));
-      if (fabs(diff) > tol) {
-        return false;
-      }
+        for (int ii = 0; ii < a.rows; ++ii) {
+            for (int jj = 0; jj < a.cols; ++jj) {
+                float diff = static_cast<float>(a.at<uint8_t>(ii, jj)) -
+                             static_cast<float>(b.at<uint8_t>(ii, jj));
+                if (fabs(diff) > tol) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
-  }
-
-  return true;
-}
 
 }  // namespace
 
 namespace flame {
 
-TEST(RasterizationTest, SortVerticesTestInOrder) {
-  cv::Point p1(100, 100);
-  cv::Point p2(200, 100);
-  cv::Point p3(150, 200);
+    TEST(RasterizationTest, SortVerticesTestInOrder) {
+        cv::Point p1(100, 100);
+        cv::Point p2(200, 100);
+        cv::Point p3(150, 200);
 
-  utils::SortVertices(&p1, &p2, &p3);
-
-  EXPECT_LE(p1.y, p2.y);
-  EXPECT_LE(p2.y, p3.y);
-}
-
-TEST(RasterizationTest, SortVerticesTestDescending) {
-  cv::Point p1(100, 300);
-  cv::Point p2(200, 200);
-  cv::Point p3(150, 100);
-
-  utils::SortVertices(&p1, &p2, &p3);
-
-  EXPECT_LE(p1.y, p2.y);
-  EXPECT_LE(p2.y, p3.y);
-}
-
-TEST(RasterizationTest, SortVerticesTestMixed) {
-  cv::Point p1(100, 100);
-  cv::Point p2(200, 300);
-  cv::Point p3(150, 200);
-
-  utils::SortVertices(&p1, &p2, &p3);
-
-  EXPECT_LE(p1.y, p2.y);
-  EXPECT_LE(p2.y, p3.y);
-}
-
-TEST(RasterizationTest, DrawLineInterpolatedTest) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(100, 100);
-  cv::Point p2(200, 200);
-  utils::DrawLineInterpolated(p1, p2, 0.0f, 1.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawLineInterpolatedTest.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompare(truth, out_img));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawLineInterpolatedTest.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawLineInterpolatedTest", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawLineInterpolatedTest", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawTopFlatShadedTriangle) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(100, 100);
-  cv::Point p2(200, 100);
-  cv::Point p3(150, 200);
-  utils::DrawTopFlatShadedTriangle(p1, p2, p3, 0.0f, 0.0f, 1.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawTopFlatShadedTriangle.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompare(truth, out_img));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawTopFlatShadedTriangle.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawTopFlatShadedTriangleTest", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawTopFlatShadedTriangleTest", out_img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawBottomFlatShadedTriangle) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(150, 100);
-  cv::Point p2(100, 200);
-  cv::Point p3(200, 200);
-  utils::DrawBottomFlatShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 1.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawBottomFlatShadedTriangle.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompare(truth, out_img));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawBottomFlatShadedTriangle.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawBottomFlatShadedTriangleTest", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawBottomFlatShadedTriangleTest", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawShadedTriangleTop) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(100, 100);
-  cv::Point p2(200, 100);
-  cv::Point p3(150, 200);
-  utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 0.0f, 1.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawShadedTriangleTop.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompare(truth, out_img));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleTop.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawShadedTriangleTest", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawShadedTriangleBottom) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(150, 100);
-  cv::Point p2(100, 200);
-  cv::Point p3(200, 200);
-  utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 1.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawShadedTriangleBottom.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompare(truth, out_img));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleBottom.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawShadedTriangleTest", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawShadedTriangle1) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(150, 100);
-  cv::Point p2(100, 200);
-  cv::Point p3(200, 300);
-  utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawShadedTriangle1.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompareNear(truth, out_img, 1.0f));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangle1.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawShadedTriangleTest", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawShadedTriangle2) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(150, 100);
-  cv::Point p2(200, 200);
-  cv::Point p3(100, 300);
-  utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawShadedTriangle2.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompareNear(truth, out_img, 1.0f));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangle2.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawShadedTriangleTest", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawShadedTriangleOutOfOrder1) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(200, 300);
-  cv::Point p2(150, 100);
-  cv::Point p3(100, 200);
-  utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawShadedTriangleOutOfOrder1.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompareNear(truth, out_img, 1.0f));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleOutOfOrder1.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawShadedTriangleTest", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawShadedTriangleOutOfOrder2) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(100, 300);
-  cv::Point p2(150, 100);
-  cv::Point p3(200, 200);
-  utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawShadedTriangleOutOfOrder2.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompareNear(truth, out_img, 1.0f));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleOutOfOrder2.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawShadedTriangleTest", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawShadedTriangleBarycentric1) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(150, 100);
-  cv::Point p2(100, 200);
-  cv::Point p3(200, 300);
-  utils::DrawShadedTriangleBarycentric(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawShadedTriangleBarycentric1.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompare(truth, out_img));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleBarycentric1.png", out_img);
-
-  // Diplay image.
-  // cv::namedWindow("DrawShadedTriangleBarycentricTest1", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawShadedTriangleBarycentricTest1", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
-
-TEST(RasterizationTest, DrawShadedTriangleBarycentric2) {
-  cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
-
-  cv::Point p1(150, 100);
-  cv::Point p2(100, 300);
-  cv::Point p3(200, 200);
-  utils::DrawShadedTriangleBarycentric(p1, p2, p3, 0.0f, 0.0f, 1.0f, &img);
-
-  // Convert to 8-bit for comparison.
-  cv::Mat out_img;
-  cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
-  img.convertTo(out_img, cv::DataType<uint8_t>::type);
-
-  // Load truth image and compare.
-  char exe_str[200];
-  readlink("/proc/self/exe", exe_str, 200);
-  fs::path exe_path(exe_str);
-  std::string base_dir = exe_path.parent_path().string();
-
-  cv::Mat truth = cv::imread(base_dir +
-    "/../data/RasterizationTest_DrawShadedTriangleBarycentric2.png",
-    cv::IMREAD_GRAYSCALE);
-
-  EXPECT_TRUE(cvCompare(truth, out_img));
-
-  // Save image.
-  cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleBarycentric2.png", out_img);
-
-  // Display image.
-  // cv::namedWindow("DrawShadedTriangleBarycentricTest2", CV_WINDOW_AUTOSIZE);
-  // cv::imshow("DrawShadedTriangleBarycentricTest2", img);
-
-  // while (true) {
-  //   int c;
-  //   c = cv::waitKey(10);
-
-  //   if (static_cast<char>(c) == 27) {
-  //     cv::destroyAllWindows();
-  //     break;
-  //   }
-  // }
-}
+        utils::SortVertices(&p1, &p2, &p3);
+
+        EXPECT_LE(p1.y, p2.y);
+        EXPECT_LE(p2.y, p3.y);
+    }
+
+    TEST(RasterizationTest, SortVerticesTestDescending) {
+        cv::Point p1(100, 300);
+        cv::Point p2(200, 200);
+        cv::Point p3(150, 100);
+
+        utils::SortVertices(&p1, &p2, &p3);
+
+        EXPECT_LE(p1.y, p2.y);
+        EXPECT_LE(p2.y, p3.y);
+    }
+
+    TEST(RasterizationTest, SortVerticesTestMixed) {
+        cv::Point p1(100, 100);
+        cv::Point p2(200, 300);
+        cv::Point p3(150, 200);
+
+        utils::SortVertices(&p1, &p2, &p3);
+
+        EXPECT_LE(p1.y, p2.y);
+        EXPECT_LE(p2.y, p3.y);
+    }
+
+    TEST(RasterizationTest, DrawLineInterpolatedTest) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(100, 100);
+        cv::Point p2(200, 200);
+        utils::DrawLineInterpolated(p1, p2, 0.0f, 1.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawLineInterpolatedTest.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompare(truth, out_img));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawLineInterpolatedTest.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawLineInterpolatedTest", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawLineInterpolatedTest", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawTopFlatShadedTriangle) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(100, 100);
+        cv::Point p2(200, 100);
+        cv::Point p3(150, 200);
+        utils::DrawTopFlatShadedTriangle(p1, p2, p3, 0.0f, 0.0f, 1.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawTopFlatShadedTriangle.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompare(truth, out_img));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawTopFlatShadedTriangle.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawTopFlatShadedTriangleTest", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawTopFlatShadedTriangleTest", out_img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawBottomFlatShadedTriangle) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(150, 100);
+        cv::Point p2(100, 200);
+        cv::Point p3(200, 200);
+        utils::DrawBottomFlatShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 1.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawBottomFlatShadedTriangle.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompare(truth, out_img));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawBottomFlatShadedTriangle.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawBottomFlatShadedTriangleTest", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawBottomFlatShadedTriangleTest", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawShadedTriangleTop) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(100, 100);
+        cv::Point p2(200, 100);
+        cv::Point p3(150, 200);
+        utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 0.0f, 1.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawShadedTriangleTop.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompare(truth, out_img));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleTop.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawShadedTriangleTest", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawShadedTriangleBottom) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(150, 100);
+        cv::Point p2(100, 200);
+        cv::Point p3(200, 200);
+        utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 1.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawShadedTriangleBottom.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompare(truth, out_img));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleBottom.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawShadedTriangleTest", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawShadedTriangle1) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(150, 100);
+        cv::Point p2(100, 200);
+        cv::Point p3(200, 300);
+        utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawShadedTriangle1.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompareNear(truth, out_img, 1.0f));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangle1.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawShadedTriangleTest", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawShadedTriangle2) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(150, 100);
+        cv::Point p2(200, 200);
+        cv::Point p3(100, 300);
+        utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawShadedTriangle2.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompareNear(truth, out_img, 1.0f));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangle2.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawShadedTriangleTest", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawShadedTriangleOutOfOrder1) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(200, 300);
+        cv::Point p2(150, 100);
+        cv::Point p3(100, 200);
+        utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawShadedTriangleOutOfOrder1.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompareNear(truth, out_img, 1.0f));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleOutOfOrder1.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawShadedTriangleTest", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawShadedTriangleOutOfOrder2) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(100, 300);
+        cv::Point p2(150, 100);
+        cv::Point p3(200, 200);
+        utils::DrawShadedTriangle(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawShadedTriangleOutOfOrder2.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompareNear(truth, out_img, 1.0f));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleOutOfOrder2.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawShadedTriangleTest", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawShadedTriangleTest", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawShadedTriangleBarycentric1) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(150, 100);
+        cv::Point p2(100, 200);
+        cv::Point p3(200, 300);
+        utils::DrawShadedTriangleBarycentric(p1, p2, p3, 0.0f, 1.0f, 0.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawShadedTriangleBarycentric1.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompare(truth, out_img));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleBarycentric1.png", out_img);
+
+        // Diplay image.
+        // cv::namedWindow("DrawShadedTriangleBarycentricTest1", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawShadedTriangleBarycentricTest1", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
+
+    TEST(RasterizationTest, DrawShadedTriangleBarycentric2) {
+        cv::Mat img(480, 640, cv::DataType<float>::type, cv::Scalar(0));
+
+        cv::Point p1(150, 100);
+        cv::Point p2(100, 300);
+        cv::Point p3(200, 200);
+        utils::DrawShadedTriangleBarycentric(p1, p2, p3, 0.0f, 0.0f, 1.0f, &img);
+
+        // Convert to 8-bit for comparison.
+        cv::Mat out_img;
+        cv::normalize(img, img, 0, 255, cv::NORM_MINMAX);
+        img.convertTo(out_img, cv::DataType<uint8_t>::type);
+
+        // Load truth image and compare.
+        fs::path exe_path("C:/dev/flame/test/data");
+        std::string base_dir = exe_path.parent_path().string();
+
+        cv::Mat truth = cv::imread(base_dir +
+                                   "/../data/RasterizationTest_DrawShadedTriangleBarycentric2.png",
+                                   cv::IMREAD_GRAYSCALE);
+
+        EXPECT_TRUE(cvCompare(truth, out_img));
+
+        // Save image.
+        cv::imwrite(base_dir + "/RasterizationTest_DrawShadedTriangleBarycentric2.png", out_img);
+
+        // Display image.
+        // cv::namedWindow("DrawShadedTriangleBarycentricTest2", CV_WINDOW_AUTOSIZE);
+        // cv::imshow("DrawShadedTriangleBarycentricTest2", img);
+
+        // while (true) {
+        //   int c;
+        //   c = cv::waitKey(10);
+
+        //   if (static_cast<char>(c) == 27) {
+        //     cv::destroyAllWindows();
+        //     break;
+        //   }
+        // }
+    }
 
 // TEST(RasterizationTest, TimingTest2x2) {
 //   int num_tests = 100;

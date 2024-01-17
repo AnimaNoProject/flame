@@ -20,13 +20,12 @@
  * @date 2017-08-18 19:18:41 (Fri)
  */
 
-#include <unistd.h>
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
-
+#include <numbers>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -166,7 +165,7 @@ TEST(EpipolarGeometryTest, minDepthProjection60Yaw) {
     0, 525, 480.0/2,
     0, 0, 1;
 
-  Eigen::AngleAxisf aa21(-M_PI/3, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa21(-std::numbers::pi/3, Eigen::Vector3f::UnitY());
   Eigen::Quaternionf q21(aa21);
   Eigen::Vector3f t21(2, 0, 0);
 
@@ -272,7 +271,7 @@ TEST(EpipolarGeometryTest, maxDepthProjection30Yaw) {
   K << 525, 0, 640/2,
     0, 525, 480/2,
     0, 0, 1;
-  Eigen::AngleAxisf aa_right(-M_PI/6, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa_right(-std::numbers::pi/6, Eigen::Vector3f::UnitY());
   Eigen::Quaternionf q_right(aa_right);
 
   EpipolarGeometry<float> epigeo(K, K.inverse());
@@ -295,7 +294,7 @@ TEST(EpipolarGeometryTest, maxDepthProjection30Roll) {
   K << 525, 0, 640/2,
     0, 525, 480/2,
     0, 0, 1;
-  Eigen::AngleAxisf aa_right(-M_PI/6, Eigen::Vector3f::UnitX());
+  Eigen::AngleAxisf aa_right(-std::numbers::pi/6, Eigen::Vector3f::UnitX());
   Eigen::Quaternionf q_right(aa_right);
 
   EpipolarGeometry<float> epigeo(K, K.inverse());
@@ -316,7 +315,7 @@ TEST(EpipolarGeometryTest, epiline60Yaw) {
        0, 525, 480/2,
        0, 0, 1;
 
-  Eigen::AngleAxisf aa_right_to_left(-M_PI/3, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa_right_to_left(-std::numbers::pi/3, Eigen::Vector3f::UnitY());
   Eigen::Quaternionf q_right_to_left(aa_right_to_left);
   Eigen::Vector3f t_right_to_left(2, 0, 0);
 
@@ -341,7 +340,7 @@ TEST(EpipolarGeometryTest, epiline60Roll) {
        0, 525, 480/2,
        0, 0, 1;
 
-  Eigen::AngleAxisf aa_right_to_left(M_PI/3, Eigen::Vector3f::UnitX());
+  Eigen::AngleAxisf aa_right_to_left(std::numbers::pi/3, Eigen::Vector3f::UnitX());
   Eigen::Quaternionf q_right_to_left(aa_right_to_left);
   Eigen::Vector3f t_right_to_left(0, 2, 0);
 
@@ -375,7 +374,7 @@ TEST(EpipolarGeometryTest, disparityToDepthTest1) {
   Eigen::Matrix3f Kinv(K.inverse());
 
   // Geometry of cameras and landmarks.
-  Eigen::AngleAxisf aa(-M_PI/12, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa(-std::numbers::pi/12, Eigen::Vector3f::UnitY());
   Sophus::SE3f T1(Eigen::Quaternionf(aa), Eigen::Vector3f::Zero());
   Sophus::SE3f T2(Eigen::Quaternionf::Identity(),
                   Eigen::Vector3f(1.0f, 0.0f, 0.0f));
@@ -425,7 +424,7 @@ TEST(EpipolarGeometryTest, disparityToDepthTest2) {
   Eigen::Matrix3f Kinv(K.inverse());
 
   // Geometry of cameras and landmarks.
-  Eigen::AngleAxisf aa(-M_PI/12, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa(-std::numbers::pi/12, Eigen::Vector3f::UnitY());
   Sophus::SE3f T1(Eigen::Quaternionf(aa), Eigen::Vector3f::Zero());
   Sophus::SE3f T2(Eigen::Quaternionf::Identity(),
                   Eigen::Vector3f(1.0f, 0.0f, 0.0f));
@@ -475,7 +474,7 @@ TEST(EpipolarGeometryTest, disparityToDepthTest3) {
   Eigen::Matrix3f Kinv(K.inverse());
 
   // Geometry of cameras and landmarks.
-  Eigen::AngleAxisf aa(M_PI/12, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa(std::numbers::pi/12, Eigen::Vector3f::UnitY());
   Sophus::SE3f T1(Eigen::Quaternionf(aa), Eigen::Vector3f::Zero());
   Sophus::SE3f T2(Eigen::Quaternionf::Identity(),
                   Eigen::Vector3f(1.0f, 0.0f, 0.0f));
@@ -525,7 +524,7 @@ TEST(EpipolarGeometryTest, disparityToDepthTest4) {
   Eigen::Matrix3f Kinv(K.inverse());
 
   // Geometry of cameras and landmarks.
-  Eigen::AngleAxisf aa(M_PI/12, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa(std::numbers::pi/12, Eigen::Vector3f::UnitY());
   Sophus::SE3f T1(Eigen::Quaternionf(aa), Eigen::Vector3f::Zero());
   Sophus::SE3f T2(Eigen::Quaternionf::Identity(),
                   Eigen::Vector3f(1.0f, 0.0f, 0.0f));
@@ -575,7 +574,7 @@ TEST(EpipolarGeometryTest, disparityToInverseDepthTest1) {
   Eigen::Matrix3f Kinv(K.inverse());
 
   // Geometry of cameras and landmarks.
-  Eigen::AngleAxisf aa(-M_PI/12, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa(-std::numbers::pi/12, Eigen::Vector3f::UnitY());
   Sophus::SE3f T1(Eigen::Quaternionf(aa), Eigen::Vector3f::Zero());
   Sophus::SE3f T2(Eigen::Quaternionf::Identity(),
                   Eigen::Vector3f(1.0f, 0.0f, 0.0f));
@@ -625,7 +624,7 @@ TEST(EpipolarGeometryTest, disparityToInverseDepthTest2) {
   Eigen::Matrix3f Kinv(K.inverse());
 
   // Geometry of cameras and landmarks.
-  Eigen::AngleAxisf aa(-M_PI/12, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa(-std::numbers::pi/12, Eigen::Vector3f::UnitY());
   Sophus::SE3f T1(Eigen::Quaternionf(aa), Eigen::Vector3f::Zero());
   Sophus::SE3f T2(Eigen::Quaternionf::Identity(),
                   Eigen::Vector3f(1.0f, 0.0f, 0.0f));
@@ -675,7 +674,7 @@ TEST(EpipolarGeometryTest, disparityToInverseDepthTest3) {
   Eigen::Matrix3f Kinv(K.inverse());
 
   // Geometry of cameras and landmarks.
-  Eigen::AngleAxisf aa(M_PI/12, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa(std::numbers::pi/12, Eigen::Vector3f::UnitY());
   Sophus::SE3f T1(Eigen::Quaternionf(aa), Eigen::Vector3f::Zero());
   Sophus::SE3f T2(Eigen::Quaternionf::Identity(),
                   Eigen::Vector3f(1.0f, 0.0f, 0.0f));
@@ -725,7 +724,7 @@ TEST(EpipolarGeometryTest, disparityToInverseDepthTest4) {
   Eigen::Matrix3f Kinv(K.inverse());
 
   // Geometry of cameras and landmarks.
-  Eigen::AngleAxisf aa(M_PI/12, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa(std::numbers::pi/12, Eigen::Vector3f::UnitY());
   Sophus::SE3f T1(Eigen::Quaternionf(aa), Eigen::Vector3f::Zero());
   Sophus::SE3f T2(Eigen::Quaternionf::Identity(),
                   Eigen::Vector3f(1.0f, 0.0f, 0.0f));
@@ -778,7 +777,7 @@ TEST(EpipolarGeometryTest, projectTest1) {
   Eigen::Matrix3f Kinv(K.inverse());
 
   // Geometry of cameras and landmarks.
-  Eigen::AngleAxisf aa(-M_PI/12, Eigen::Vector3f::UnitY());
+  Eigen::AngleAxisf aa(-std::numbers::pi/12, Eigen::Vector3f::UnitY());
   Sophus::SE3f T1(Eigen::Quaternionf(aa), Eigen::Vector3f::Zero());
   Sophus::SE3f T2(Eigen::Quaternionf::Identity(),
                   Eigen::Vector3f(1.0f, 0.0f, 0.0f));

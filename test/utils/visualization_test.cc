@@ -20,64 +20,62 @@
  * @date 2017-08-18 19:15:38 (Fri)
  */
 
-#include "gtest/gtest.h"
-
+#include <gtest/gtest.h>
 #include "flame/utils/visualization.h"
 
-namespace flame {
 
-namespace utils {
+namespace flame::utils {
 
-TEST(VisualizationTest, blendColorTest1) {
-  cv::Vec3b red(0, 0, 255);
-  cv::Vec3b green(0, 255, 0);
-  cv::Vec3b blend = blendColor(red, green, -1.0f, 0.0f, 1.0f);
+    TEST(VisualizationTest, blendColorTest1) {
+        cv::Vec3b red(0, 0, 255);
+        cv::Vec3b green(0, 255, 0);
+        cv::Vec3b blend = blendColor(red, green, -1.0f, 0.0f, 1.0f);
 
-  EXPECT_EQ(red[0], blend[0]);
-  EXPECT_EQ(red[1], blend[1]);
-  EXPECT_EQ(red[2], blend[2]);
-}
+        EXPECT_EQ(red[0], blend[0]);
+        EXPECT_EQ(red[1], blend[1]);
+        EXPECT_EQ(red[2], blend[2]);
+    }
 
-TEST(VisualizationTest, blendColorTest2) {
-  cv::Vec3b red(0, 0, 255);
-  cv::Vec3b green(0, 255, 0);
-  cv::Vec3b blend = blendColor(red, green, 2.0f, 0.0f, 1.0f);
+    TEST(VisualizationTest, blendColorTest2) {
+        cv::Vec3b red(0, 0, 255);
+        cv::Vec3b green(0, 255, 0);
+        cv::Vec3b blend = blendColor(red, green, 2.0f, 0.0f, 1.0f);
 
-  EXPECT_EQ(green[0], blend[0]);
-  EXPECT_EQ(green[1], blend[1]);
-  EXPECT_EQ(green[2], blend[2]);
-}
+        EXPECT_EQ(green[0], blend[0]);
+        EXPECT_EQ(green[1], blend[1]);
+        EXPECT_EQ(green[2], blend[2]);
+    }
 
-TEST(VisualizationTest, blendColorTest3) {
-  cv::Vec3b red(0, 0, 255);
-  cv::Vec3b green(0, 255, 0);
-  cv::Vec3b blend = blendColor(red, green, 0.5f, 0.0f, 1.0f);
+    TEST(VisualizationTest, blendColorTest3) {
+        cv::Vec3b red(0, 0, 255);
+        cv::Vec3b green(0, 255, 0);
+        cv::Vec3b blend = blendColor(red, green, 0.5f, 0.0f, 1.0f);
 
-  EXPECT_EQ(0, blend[0]);
-  EXPECT_EQ(127, blend[1]);
-  EXPECT_EQ(127, blend[2]);
-}
+        EXPECT_EQ(0, blend[0]);
+        EXPECT_EQ(127, blend[1]);
+        EXPECT_EQ(127, blend[2]);
+    }
 
-TEST(VisualizationTest, censusToGrayTest1) {
-  cv::Vec3b ret = censusToGray(0, 0, 100);
-  EXPECT_EQ(0, ret[0]);
-  EXPECT_EQ(0, ret[1]);
-  EXPECT_EQ(0, ret[2]);
-}
+    TEST(VisualizationTest, censusToGrayTest1) {
+        cv::Vec3b ret = censusToGray(0, 0, 100);
+        EXPECT_EQ(0, ret[0]);
+        EXPECT_EQ(0, ret[1]);
+        EXPECT_EQ(0, ret[2]);
+    }
 
-TEST(VisualizationTest, censusToGrayTest2) {
-  cv::Vec3b ret = censusToGray(100, 0, 100);
-  EXPECT_EQ(255, ret[0]);
-  EXPECT_EQ(255, ret[1]);
-  EXPECT_EQ(255, ret[2]);
-}
+    TEST(VisualizationTest, censusToGrayTest2) {
+        cv::Vec3b ret = censusToGray(100, 0, 100);
+        EXPECT_EQ(255, ret[0]);
+        EXPECT_EQ(255, ret[1]);
+        EXPECT_EQ(255, ret[2]);
+    }
 
-TEST(VisualizationTest, censusToGrayTest3) {
-  cv::Vec3b ret = censusToGray(50, 0, 100);
-  EXPECT_EQ(127, ret[0]);
-  EXPECT_EQ(127, ret[1]);
-  EXPECT_EQ(127, ret[2]);
-}
+    TEST(VisualizationTest, censusToGrayTest3) {
+        cv::Vec3b ret = censusToGray(50, 0, 100);
+        EXPECT_EQ(127, ret[0]);
+        EXPECT_EQ(127, ret[1]);
+        EXPECT_EQ(127, ret[2]);
+    }
 
 // TEST(VisualizationTest, censusToRGBTest1) {
 //   cv::Mat_<uint32_t> img(3, 3, static_cast<uint32_t>(0));
@@ -115,6 +113,6 @@ TEST(VisualizationTest, censusToGrayTest3) {
 //   }
 // }
 
-}  // namespace utils
+} // namespace flame::utils
 
-}  // namespace flame
+
