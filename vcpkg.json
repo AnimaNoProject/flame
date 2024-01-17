@@ -3,19 +3,37 @@
   "version-string" : "1.0.0",
   "builtin-baseline" : "c268e9fc37f847f47e3de42932abf24e3cf046ad",
   "dependencies" : [ {
-    "name" : "boost-graph",
-    "version>=" : "1.83.0"
+    "name" : "gtest",
+    "version>=" : "1.14.0"
+  }, {
+    "name" : "vcpkg-cmake-config",
+    "version>=" : "2022-02-06#1"
+  }, {
+    "name" : "vcpkg-cmake",
+    "version>=" : "2023-05-04"
   }, {
     "name" : "boost",
     "version>=" : "1.83.0#1"
   }, {
+    "name" : "boost-graph",
+    "version>=" : "1.83.0"
+  }, {
     "name" : "boost-geometry",
     "version>=" : "1.83.0"
   }, {
-    "name" : "opencv4",
-    "version>=" : "4.8.0#15"
+    "name" : "opencv3",
+    "version>=" : "3.4.18#12"
+  }, {
+    "name" : "eigen3",
+    "version>=" : "3.4.0#3"
   }, {
     "name" : "sophus",
     "version>=" : "1.22.10"
+  }, {
+    "name" : "fmt",
+    "version>=" : "10.2.1"
+  }, {
+    "name" : "boost-filesystem",
+    "version>=" : "1.83.0"
   } ]
 }
