@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <vector>
 #include <limits>
+#include <numbers>
 
 #include <boost/geometry/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
@@ -148,7 +149,7 @@ float KeyFrameSelector::score(int width, int height,
   float S_orientation = 0.5 * (cos(angle) + 1); // Use cos to get around wrapping to (-pi, pi).
 
   // Apply hard check for vastly different orientations.
-  float cos_angle_thresh = 0.5 * (cos(60.0f * M_PI / 180.0f) + 1);
+  float cos_angle_thresh = 0.5 * (cos(60.0f * std::numbers::pi / 180.0f) + 1);
   if (S_orientation < cos_angle_thresh) {
     // printf("Inward normal does not align with viewing direction from reference image!\n");
     return std::numeric_limits<float>::lowest();
