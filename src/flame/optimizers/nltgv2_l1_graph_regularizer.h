@@ -26,12 +26,8 @@
 #include <memory>
 
 #include <boost/graph/adjacency_list.hpp>
-
 #include "flame/utils/image_utils.h"
-
-namespace flame {
-
-namespace optimizers {
+#include <graaflib/graph.h>
 
 /**
  * @namespace This namespace includes types and functions to minimize a
@@ -66,140 +62,135 @@ namespace optimizers {
  * object and add vertices and edges as needed. Run the step(...) function to
  * perform an optimization step.
  */
-namespace nltgv2_l1_graph_regularizer {
+namespace flame::optimizers::nltgv2_l1_graph_regularizer {
 
 /**
  * @brief Struct that defines a vertex in the graph.
  */
-struct VertexData {
-  cv::Point2f pos; // Position.
-  float x = 0.0f; // Main primal variable.
-  float w1 = 0.0f; // Plane parameters.
-  float w2 = 0.0f;;
+    struct VertexData {
+        cv::Point2f pos; // Position.
+        float x = 0.0f; // Main primal variable.
+        float w1 = 0.0f; // Plane parameters.
+        float w2 = 0.0f;;
 
-  float x_bar = 0.0f; // Extragradient varaibles.
-  float w1_bar = 0.0f;
-  float w2_bar = 0.0f;
+        float x_bar = 0.0f; // Extragradient varaibles.
+        float w1_bar = 0.0f;
+        float w2_bar = 0.0f;
 
-  float x_prev = 0.0f; // Previous x value.
-  float w1_prev = 0.0f;
-  float w2_prev = 0.0f;
+        float x_prev = 0.0f; // Previous x value.
+        float w1_prev = 0.0f;
+        float w2_prev = 0.0f;
 
-  float data_term = 0.0f; // Data term.
-  float data_weight = 1.0f; // Weight on data term.
-};
+        float data_term = 0.0f; // Data term.
+        float data_weight = 1.0f; // Weight on data term.
+    };
 
-/**
- * @brief Struct that defines an edge in the graph.
- */
-struct EdgeData {
-  float alpha = 1.0f; // Edge weights.
-  float beta = 1.0f;
-  float q1 = 0.0f; // Dual variables.
-  float q2 = 0.0f;
-  float q3 = 0.0f;
-  bool valid = true; // False if this edge should be removed.
-};
+    /**
+     * @brief Struct that defines an edge in the graph.
+     */
+    struct EdgeData {
+        float alpha = 1.0f; // Edge weights.
+        float beta = 1.0f;
+        float q1 = 0.0f; // Dual variables.
+        float q2 = 0.0f;
+        float q3 = 0.0f;
+        bool valid = true; // False if this edge should be removed.
+    };
 
-/**
- * @brief Graph representation using the Boost Graph Library.
- */
-using Graph =
-    boost::adjacency_list<boost::hash_setS, // Edges will be stored in a hash map.
-                          boost::hash_setS, // Vertices will be stored in a hash map
-                          boost::undirectedS, // Undirected graph
-                          VertexData, // Data stored at each vertex
-                          EdgeData>; // Data stored at each edge
+    /**
+     * @brief Graph representation using the Boost Graph Library.
+     */
+    using Graph = graaf::undirected_graph<VertexData, EdgeData>;
 
-// These descriptors are essentially handles to the vertices and edges.
-using VertexHandle = boost::graph_traits<Graph>::vertex_descriptor;
-using EdgeHandle = boost::graph_traits<Graph>::edge_descriptor;
+    // These descriptors are essentially handles to the vertices and edges.
+    //using VertexHandle = boost::graph_traits<Graph>::vertex_descriptor;
+    //using EdgeHandle = boost::graph_traits<Graph>::edge_descriptor;
 
-/**
- * @brief Parameter struct.
- */
-struct Params {
-  float data_factor = 0.1f; // lambda in the TV literature.
-  float step_x = 0.001f; // Primal step size.
-  float step_q = 125.0f; // Dual step size.
-  float theta = 0.25f; // Extra gradient step size.
+    /**
+     * @brief Parameter struct.
+     */
+    struct Params {
+        float data_factor = 0.1f; // lambda in the TV literature.
+        float step_x = 0.001f; // Primal step size.
+        float step_q = 125.0f; // Dual step size.
+        float theta = 0.25f; // Extra gradient step size.
 
-  float x_min = 0.0f; // Feasible set.
-  float x_max = 10.0f;
-};
+        float x_min = 0.0f; // Feasible set.
+        float x_max = 10.0f;
+    };
 
-/**
- * @brief Performs a full optimization step.
- */
-void step(const Params& params, Graph* graph);
+    /**
+     * @brief Performs a full optimization step.
+     */
+    void step(const Params &params, Graph *graph);
 
-/**
- * @brief Return the smoothness cost (i.e. the NLTGV2 part).
- */
-float smoothnessCost(const Params& params, const Graph& graph);
+    /**
+     * @brief Return the smoothness cost (i.e. the NLTGV2 part).
+     */
+    float smoothnessCost(const Params &params, const Graph &graph);
 
-/**
- * @brief Return the data cost (i.e. the weighted L1 part).
- */
-float dataCost(const Params& params, const Graph& graph);
+    /**
+     * @brief Return the data cost (i.e. the weighted L1 part).
+     */
+    float dataCost(const Params &params, const Graph &graph);
 
-/**
- * @brief Return the total cost of the current solution.
- */
-inline float cost(const Params& params, const Graph& graph) {
-  return smoothnessCost(params, graph) + dataCost(params, graph);
-}
+    /**
+     * @brief Return the total cost of the current solution.
+     */
+    inline float cost(const Params &params, const Graph &graph) {
+        return smoothnessCost(params, graph) + dataCost(params, graph);
+    }
 
-namespace internal {
+    namespace internal {
 
-/**
- * @brief Perform a gradient ascent step in the dual.
- */
-void dualStep(const Params& params, Graph* graph);
+        /**
+         * @brief Perform a gradient ascent step in the dual.
+         */
+        void dualStep(const Params &params, Graph *graph);
 
-/**
- * @brief Perform a gradient descent step in the primal.
- */
-void primalStep(const Params& params, Graph* graph);
+        /**
+         * @brief Perform a gradient descent step in the primal.
+         */
+        void primalStep(const Params &params, Graph *graph);
 
-/**
- * @brief Perform an extra-gradient step in the primal.
- */
-void extraGradientStep(const Params& params, Graph* graph);
+        /**
+         * @brief Perform an extra-gradient step in the primal.
+         */
+        void extraGradientStep(const Params &params, Graph *graph);
 
 // Proximal operator for convex conjugate of NLTGV2 regularizer.
-inline float proxNLTGV2Conj(float step, float q) {
-  float absq = utils::fast_abs(q);
-  float new_q = q / (absq > 1 ? absq : 1);
-  FLAME_ASSERT(!std::isnan(new_q));
-  return new_q;
-}
+        inline float proxNLTGV2Conj(float step, float q) {
+            float absq = utils::fast_abs(q);
+            float new_q = q / (absq > 1 ? absq : 1);
+            FLAME_ASSERT(!std::isnan(new_q));
+            return new_q;
+        }
 
 // Proximal operator for L2 data term.
-inline float proxL1(float x_min, float x_max, float step_x, float data_weight,
-             float x, float data) {
-  float diff = x - data;
-  float thresh = step_x * data_weight;
+        inline float proxL1(float x_min, float x_max, float step_x, float data_weight,
+                            float x, float data) {
+            float diff = x - data;
+            float thresh = step_x * data_weight;
 
-  float new_x = 0.0f;
-  if (diff > thresh) {
-    new_x = x - thresh;
-  } else if (diff < -thresh) {
-    new_x = x + thresh;
-  } else {
-    new_x = data;
-  }
+            float new_x = 0.0f;
+            if (diff > thresh) {
+                new_x = x - thresh;
+            } else if (diff < -thresh) {
+                new_x = x + thresh;
+            } else {
+                new_x = data;
+            }
 
-  // Project back onto the feasible set.
-  new_x = (new_x < x_min) ? x_min : new_x;
-  new_x = (new_x > x_max) ? x_max : new_x;
-  return new_x;
-}
+            // Project back onto the feasible set.
+            new_x = (new_x < x_min) ? x_min : new_x;
+            new_x = (new_x > x_max) ? x_max : new_x;
+            return new_x;
+        }
 
-}  // namespace internal
+    }  // namespace internal
 
-}  // namespace nltgv2_l1_graph_regularizer
+} // namespace flame::optimizers::nltgv2_l1_graph_regularizer
 
-}  // namespace optimizers
 
-}  // namespace flame
+
+

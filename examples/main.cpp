@@ -141,7 +141,7 @@ int main() {
         trans = q_flu_to_rdf * trans;
         Sophus::SE3f pose(quat, trans);
 
-        bool is_poseframe = (process_idx % 10 == 0);
+        bool is_poseframe = (process_idx % 5 == 0);
         bool update_success = sensor->update(ts, process_idx, pose, img_undistort, is_poseframe);
         printf("success:%d\n", update_success);
 

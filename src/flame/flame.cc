@@ -328,16 +328,30 @@ namespace flame {
         if (params_.rescale_data) {
             std::lock_guard<std::mutex> lock(graph_mtx_);
 
-            // Rescale graph.
             float idepth_sum = 0.0f;
-            Graph::vertex_iterator vit, end;
-            boost::tie(vit, end) = boost::vertices(graph_);
-            for (; vit != end; ++vit) {
-                const auto &vtx = graph_[*vit];
-                idepth_sum += vtx.data_term * graph_scale_;
+            for (auto &[id, cvtx]: graph_.get_vertices()) {
+                idepth_sum += cvtx.data_term * graph_scale_;
             }
-            float new_scale = idepth_sum / num_vertices(graph_);
 
+
+            // Rescale graph.
+            /*
+        Graph::vertex_iterator vit, end;
+        boost::tie(vit, end) = boost::vertices(graph_);
+        for (; vit != end; ++vit) {
+            const auto &vtx = graph_[*vit];
+            idepth_sum += vtx.data_term * graph_scale_;
+        }*/
+            float new_scale = idepth_sum / graph_.get_vertices().size();
+
+            for (auto &[id, cvtx]: graph_.get_vertices()) {
+                optimizers::nltgv2_l1_graph_regularizer::VertexData &vtx = graph_.get_vertex(id);
+                vtx.x = vtx.x * graph_scale_ / new_scale;
+                vtx.x_bar = vtx.x_bar * graph_scale_ / new_scale;
+                vtx.x_prev = vtx.x_prev * graph_scale_ / new_scale;
+                vtx.data_term = vtx.data_term * graph_scale_ / new_scale;
+            }
+            /*
             boost::tie(vit, end) = boost::vertices(graph_);
             for (; vit != end; ++vit) {
                 auto &vtx = graph_[*vit];
@@ -346,6 +360,7 @@ namespace flame {
                 vtx.x_prev = vtx.x_prev * graph_scale_ / new_scale;
                 vtx.data_term = vtx.data_term * graph_scale_ / new_scale;
             }
+             */
             params_.rparams.data_factor *= new_scale / graph_scale_;
             graph_scale_ = new_scale;
         }
@@ -369,6 +384,14 @@ namespace flame {
         vtx_w2_.clear();
         vtx_normals_.clear();
 
+        for (auto &[id, cvtx]: graph_.get_vertices()) {
+            optimizers::nltgv2_l1_graph_regularizer::VertexData &vtx = graph_.get_vertex(id);
+            vtx_.push_back(vtx.pos);
+            vtx_idepths_.push_back(vtx.x * graph_scale_);
+            vtx_w1_.push_back(vtx.w1);
+            vtx_w2_.push_back(vtx.w2);
+        }
+        /*
         Graph::vertex_iterator vit, end;
         boost::tie(vit, end) = boost::vertices(graph_);
         for (; vit != end; ++vit) {
@@ -378,6 +401,7 @@ namespace flame {
             vtx_w1_.push_back(vtx.w1);
             vtx_w2_.push_back(vtx.w2);
         }
+         */
         graph_mtx_.unlock();
 
         // getVertexNormals(params_, K_, vtx_, vtx_idepths_, vtx_w1_, vtx_w2_, &vtx_normals_,
@@ -1888,6 +1912,34 @@ namespace flame {
         std::unordered_set<VertexHandle> vtx_to_remove;
 
         // Loop over vertices and project.
+        for (auto &[id, cvtx]: graph->get_vertices()) {
+            optimizers::nltgv2_l1_graph_regularizer::VertexData &vtx = graph->get_vertex(id);
+            // Project into new frame.
+            cv::Point2f u_new;
+            float idepth_new;
+            epigeo.project(vtx.pos, vtx.x * graph_scale, &u_new, &idepth_new);
+            vtx.pos = u_new;
+            vtx.x = idepth_new / graph_scale;
+
+            if (!valid_region.contains(u_new) || (idepth_new < 0.0f)) {
+                // Projected outside of image or behind camera.
+                vtx_to_remove.insert(id);
+                continue;
+            }
+
+            if (params.do_grad_check_after_projection) {
+                // Check gradient.
+                float gx = utils::bilinearInterp<float, float>(fnew.gradx[0], u_new.x,
+                                                               u_new.y);
+                float gy = utils::bilinearInterp<float, float>(fnew.grady[0], u_new.x,
+                                                               u_new.y);
+                if (gx * gx + gy * gy < params.min_grad_mag * params.min_grad_mag) {
+                    // Projected to a point without gradient.
+                    vtx_to_remove.insert(id);
+                }
+            }
+        }
+        /*
         Graph::vertex_iterator vit, end;
         boost::tie(vit, end) = boost::vertices(*graph);
         for (; vit != end; ++vit) {
@@ -1918,16 +1970,16 @@ namespace flame {
                 }
             }
         }
-
+*/
         // Remove marked vertices.
-        for (auto& vtx: vtx_to_remove) {
+        for (auto &vtx: vtx_to_remove) {
             int feat_id = (*vtx_to_feat)[vtx];
             feat_to_vtx->erase(feat_id);
             vtx_to_feat->erase(vtx);
 
-            boost::clear_vertex(vtx, *graph); // Remove connected edges.
-            boost::remove_vertex(vtx, *graph); // Remove vertex.
-
+            //boost::clear_vertex(vtx, *graph); // Remove connected edges.
+            //boost::remove_vertex(vtx, *graph); // Remove vertex.
+            graph->remove_vertex(vtx);
 
         }
 
@@ -1986,16 +2038,17 @@ namespace flame {
         std::unordered_set<VertexHandle> vtx_to_remove;
 
         /*==================== Update existing vertices ====================*/
-        Graph::vertex_iterator vit, end;
-        boost::tie(vit, end) = boost::vertices(*graph);
-        for (; vit != end; ++vit) {
-            auto &vtx = (*graph)[*vit];
+        //Graph::vertex_iterator vit, end;
+        //boost::tie(vit, end) = boost::vertices(*graph);
+        //for (; vit != end; ++vit) {
 
+        for (auto &[id, cvtx]: graph->get_vertices()) {
+            optimizers::nltgv2_l1_graph_regularizer::VertexData &vtx = graph->get_vertex(id);
             // First check if this vertex's associated feature is still valid.
-            int feat_id = vtx_to_feat->at(*vit);
+            int feat_id = vtx_to_feat->at(id);
             if (feats_to_update.count(feat_id) == 0) {
                 // This vertex no longer has an associated features. Remove it.
-                vtx_to_remove.insert(*vit);
+                vtx_to_remove.insert(id);
             }
 
             const FeatureWithIDepth &feat = feats_in_curr[feat_id_to_idx[feat_id]];
@@ -2021,10 +2074,11 @@ namespace flame {
         }
 
         /*==================== Remove marked vertices ====================*/
-        for (auto vtx: vtx_to_remove) {
-            boost::clear_vertex(vtx, *graph); // Remove connected edges.
-            boost::remove_vertex(vtx, *graph); // Remove vertex.
 
+        for (auto vtx: vtx_to_remove) {
+            //boost::clear_vertex(vtx, *graph); // Remove connected edges.
+            //boost::remove_vertex(vtx, *graph); // Remove vertex.
+            graph->remove_vertex(vtx);
             int feat_id = vtx_to_feat->at(vtx);
             feat_to_vtx->erase(feat_id);
             vtx_to_feat->erase(vtx);
@@ -2035,12 +2089,16 @@ namespace flame {
             const FeatureWithIDepth feat = feats_in_curr[feat_id_to_idx[feat_id]];
 
             // Add new vertex to graph.
-            VertexHandle vtx_ii = boost::add_vertex(dgraph::VertexData(), *graph);
+            //VertexHandle vtx_ii = boost::add_vertex(dgraph::VertexData(), *graph);
+            static int32_t i = 0;
+            VertexHandle vtx_ii = graph->add_vertex(dgraph::VertexData(), i++);
             (*feat_to_vtx)[feat_id] = vtx_ii;
             (*vtx_to_feat)[vtx_ii] = feat_id;
 
             // Initialize vertex data.
-            auto &vdata = (*graph)[vtx_ii];
+            //auto &vdata = (*graph)[vtx_ii];
+
+            auto& vdata = graph->get_vertex(vtx_ii);
             vdata.pos = feat.xy;
             vdata.data_term = feat.idepth_mu / graph_scale;
             vdata.data_weight = (params.adaptive_data_weights) ?
@@ -2053,8 +2111,17 @@ namespace flame {
 
         /*==================== Retriangulate ====================*/
         std::vector<cv::Point2f> vtx_xy;
-        vtx_xy.reserve(boost::num_vertices(*graph));
+        // vtx_xy.reserve(boost::num_vertices(*graph));
+        vtx_xy.reserve(graph->get_vertices().size());
         VtxIdxToHandle vtx_idx_to_handle;
+
+        int count = 0;
+        for (auto &[id, cvtx]: graph->get_vertices()) {
+            vtx_xy.push_back(cvtx.pos);
+            vtx_idx_to_handle[count] = id;
+            count++;
+        }
+        /*
         boost::tie(vit, end) = boost::vertices(*graph);
         int count = 0;
         for (; vit != end; ++vit) {
@@ -2063,6 +2130,7 @@ namespace flame {
             vtx_idx_to_handle[count] = *vit;
             count++;
         }
+         */
 
         if (vtx_xy.size() < 3) {
             // Not enough detections.
@@ -2077,16 +2145,26 @@ namespace flame {
 
         /*==================== Update graph edges ====================*/
         // Set all edges to invalid.
+        for (const auto &[vertex_ids, cedge]: graph->get_edges()) {
+            //dgraph::VertexData &vtx_ii = graph->get_vertex(vertex_ids.first);
+            //dgraph::VertexData &vtx_jj = graph->get_vertex(vertex_ids.second);
+            dgraph::EdgeData &edge = graph->get_edge(vertex_ids.first, vertex_ids.second);
+            edge.valid = false;
+        }
+        /*
         Graph::edge_iterator eit, eend;
         boost::tie(eit, eend) = boost::edges(*graph);
         for (; eit != eend; ++eit) {
             (*graph)[*eit].valid = false;
         }
-
+        */
         // Add new edges.
         for (int ii = 0; ii < triangulator->edges().size(); ++ii) {
-            VertexHandle vtx_ii = vtx_idx_to_handle[triangulator->edges()[ii][0]];
-            VertexHandle vtx_jj = vtx_idx_to_handle[triangulator->edges()[ii][1]];
+            VertexHandle vtx_id_ii = vtx_idx_to_handle[triangulator->edges()[ii][0]];
+            VertexHandle vtx_id_jj = vtx_idx_to_handle[triangulator->edges()[ii][1]];
+
+            dgraph::VertexData &vtx_ii = graph->get_vertex(vtx_id_ii);
+            dgraph::VertexData &vtx_jj = graph->get_vertex(vtx_id_jj);
 
             // Compute edge length.
             cv::Point2f u_ii = vtx_xy[triangulator->edges()[ii][0]];
@@ -2094,14 +2172,20 @@ namespace flame {
             cv::Point2f diff(u_ii - u_jj);
             float edge_length = sqrt(diff.x * diff.x + diff.y * diff.y);
 
+            if (!graph->has_edge(vtx_id_ii, vtx_id_jj)) {
+                graph->add_edge(vtx_id_ii, vtx_id_jj, dgraph::EdgeData());
+            }
+            /*
             if (!boost::edge(vtx_ii, vtx_jj, *graph).second) {
                 // Add edge to graph if new.
                 boost::add_edge(vtx_ii, vtx_jj, dgraph::EdgeData(), *graph);
             }
-
+            */
             // Initialize edge data.
-            const auto &epair = boost::edge(vtx_ii, vtx_jj, *graph);
-            auto &edata = (*graph)[epair.first];
+
+            dgraph::EdgeData &edata = graph->get_edge(vtx_id_ii, vtx_id_jj);
+            //const auto &epair = boost::edge(vtx_ii, vtx_jj, *graph);
+            //auto &edata = (*graph)[epair.first];
             edata.alpha = 1.0f / edge_length;
             edata.beta = 1.0f;
             edata.valid = true;
@@ -2110,25 +2194,38 @@ namespace flame {
         // Remove edges no longer part of triangulation.
         std::vector<EdgeHandle> edges_to_remove; // Can't use a hashmap because hash
         // for edge_descriptors are weird.
+
+        edges_to_remove.reserve(graph->get_edges().size());
+        for (const auto &[vertex_ids, cedge]: graph->get_edges()) {
+            //dgraph::VertexData &vtx_ii = graph->get_vertex(vertex_ids.first);
+            //dgraph::VertexData &vtx_jj = graph->get_vertex(vertex_ids.second);
+            if (!cedge.valid)
+                edges_to_remove.emplace_back(vertex_ids.first, vertex_ids.second);
+        }
+
+
+
+        /*
         edges_to_remove.reserve(boost::num_edges(*graph));
         boost::tie(eit, eend) = boost::edges(*graph);
         for (; eit != eend; ++eit) {
             if (!(*graph)[*eit].valid) {
                 edges_to_remove.push_back(*eit);
             }
-        }
-        for (auto &edge: edges_to_remove) {
-            boost::remove_edge(edge, *graph);
-        }
+        }*/
 
-        FLAME_ASSERT(triangulator->edges().size() == boost::num_edges(*graph));
+        for (auto &edge: edges_to_remove) {
+            graph->remove_edge(edge.first, edge.second);
+        }
+        FLAME_ASSERT(triangulator->edges().size() == graph->get_edges().size());
 
         /*==================== Initialize idepth for new vertices ====================*/
         // Needs to happen after triangulation so that we can use neighbor idepths to
         // initialize.
         for (int feat_id: feats_to_update) {
             VertexHandle vtx_ii = (*feat_to_vtx)[feat_id];
-            auto &vdata = (*graph)[vtx_ii];
+            //auto &vdata = (*graph)[vtx_ii];
+            auto &vdata = graph->get_vertex(vtx_ii);
 
             float init_idepth = feats_in_curr[feat_id_to_idx[feat_id]].idepth_mu;
 
@@ -2139,10 +2236,21 @@ namespace flame {
                 if (std::isnan(init_idepth)) {
                     // If the predicted value in the idepthmap is invalid, compute the mean
                     // idepth of the neighbors.
-                    Graph::adjacency_iterator nit, end;
-                    boost::tie(nit, end) = boost::adjacent_vertices(vtx_ii, (*graph));
                     float idepth_sum = 0.0f;
                     int valid_neighbor_count = 0;
+
+                    for (auto& vtx_id : graph->get_neighbors(vtx_ii))
+                    {
+                        auto vtx = graph->get_vertex(vtx_id);
+                        if (vtx.data_weight > 0.0f) {
+                            idepth_sum += vtx.x * graph_scale;
+                            valid_neighbor_count++;
+                        }
+                    }
+                    /*
+                    Graph::adjacency_iterator nit, end;
+                    boost::tie(nit, end) = boost::adjacent_vertices(vtx_ii, (*graph));
+
                     for (; nit != end; ++nit) {
                         const auto &vneighdata = (*graph)[*nit];
                         if (vneighdata.data_weight > 0.0f) {
@@ -2150,6 +2258,7 @@ namespace flame {
                             valid_neighbor_count++;
                         }
                     }
+                     */
 
                     if (valid_neighbor_count > 0) {
                         init_idepth = idepth_sum / valid_neighbor_count;
@@ -2166,7 +2275,7 @@ namespace flame {
         }
 
         // Set some statistics.
-        int num_vertices = boost::num_vertices(*graph);
+        int num_vertices = graph->get_vertices().size();
         stats->set("num_feats", feats.size());
         stats->set("num_vtx", num_vertices);
         stats->set("num_tris", triangulator->triangles().size());
