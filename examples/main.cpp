@@ -4,8 +4,7 @@
 
 flame::Params tumParams() {
     flame::Params params;
-    /*
-     * params.omp_num_threads = 4;
+    params.omp_num_threads = 4;
     params.omp_chunk_size = 1024;
 
     params.do_idepth_triangle_filter = true;
@@ -14,6 +13,8 @@ flame::Params tumParams() {
     params.min_grad_mag = 5.0;
     params.fparams.min_grad_mag = params.min_grad_mag;
     params.min_error = 100;
+    params.min_height = -100000000000000.0;
+    params.max_height = 100000000000000.0;
 
     params.detection_win_size = 16;
     params.zparams.win_size = 5;
@@ -30,15 +31,12 @@ flame::Params tumParams() {
     params.rparams.step_x = 0.001;
     params.rparams.step_q = 125.0;
     params.rparams.theta = 0.25;
-
     params.check_sticky_obstacles = false;
-    */
 
-    //params.min_height = -100000000000000.0;
-    //params.max_height = 100000000000000.0;
     params.debug_draw_wireframe = true;
     params.debug_draw_features = true;
     params.debug_draw_matches = true;
+    params.debug_draw_normals = true;
     return params;
 }
 
@@ -127,13 +125,7 @@ int main() {
         cv::Mat img_undistort;
         cv::undistort(img, img_undistort, K, D);
         CamPose p = weightSum(0.5, pose_buffer[id].second, pose_buffer[secondClosest].second);
-        //bool ok = pose_buffer.get(ts, p);
-        /*
-        if (!ok) {
-            printf("[ERROR]Cannot get pose at ts %f\n", ts);
-            continue;
-        }
-         */
+
         Eigen::Quaternionf quat(p.quat);
         Eigen::Vector3f trans(p.pos.x(), p.pos.y(), p.pos.z());
         Eigen::Quaternionf q_flu_to_rdf(-0.5, -0.5, 0.5, -0.5);
@@ -141,13 +133,12 @@ int main() {
         trans = q_flu_to_rdf * trans;
         Sophus::SE3f pose(quat, trans);
 
-        bool is_poseframe = (process_idx % 5 == 0);
+        bool is_poseframe = (process_idx % 3 == 0);
         bool update_success = sensor->update(ts, process_idx, pose, img_undistort, is_poseframe);
         printf("success:%d\n", update_success);
 
         cv::Mat1f idepthmap;
         idepthmap = sensor->getInverseDepthMap();
-
         cv::Mat1f filter_idepthmap;
         sensor->getFilteredInverseDepthMap(&filter_idepthmap);
 
@@ -188,13 +179,6 @@ int main() {
         cv::hconcat(img_debug, filter_depth_show, img_debug);
         cv::imshow("depth", img_debug);
         cv::waitKey();
-        // cv::Mat depth_color;
-        // depth.convertTo(depth, CV_8UC1, 16);
-        // applyColorMap(depth, depth_color, cv::COLORMAP_JET);
-        // cv::imshow("disp", depth_color);
-        // char key = cv::waitKey();
-        // if (key == 27)
-        //     break;
         process_idx++;
     }
     return 0;

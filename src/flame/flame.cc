@@ -22,7 +22,7 @@
 
 #include "flame/flame.h"
 
-#include <stdio.h>
+#include <cstdio>
 #include <limits>
 #include <vector>
 #include <random>
@@ -333,34 +333,17 @@ namespace flame {
                 idepth_sum += cvtx.data_term * graph_scale_;
             }
 
-
             // Rescale graph.
-            /*
-        Graph::vertex_iterator vit, end;
-        boost::tie(vit, end) = boost::vertices(graph_);
-        for (; vit != end; ++vit) {
-            const auto &vtx = graph_[*vit];
-            idepth_sum += vtx.data_term * graph_scale_;
-        }*/
             float new_scale = idepth_sum / graph_.get_vertices().size();
 
             for (auto &[id, cvtx]: graph_.get_vertices()) {
-                optimizers::nltgv2_l1_graph_regularizer::VertexData &vtx = graph_.get_vertex(id);
+                dgraph::VertexData &vtx = graph_.get_vertex(id);
                 vtx.x = vtx.x * graph_scale_ / new_scale;
                 vtx.x_bar = vtx.x_bar * graph_scale_ / new_scale;
                 vtx.x_prev = vtx.x_prev * graph_scale_ / new_scale;
                 vtx.data_term = vtx.data_term * graph_scale_ / new_scale;
             }
-            /*
-            boost::tie(vit, end) = boost::vertices(graph_);
-            for (; vit != end; ++vit) {
-                auto &vtx = graph_[*vit];
-                vtx.x = vtx.x * graph_scale_ / new_scale;
-                vtx.x_bar = vtx.x_bar * graph_scale_ / new_scale;
-                vtx.x_prev = vtx.x_prev * graph_scale_ / new_scale;
-                vtx.data_term = vtx.data_term * graph_scale_ / new_scale;
-            }
-             */
+
             params_.rparams.data_factor *= new_scale / graph_scale_;
             graph_scale_ = new_scale;
         }
@@ -385,27 +368,15 @@ namespace flame {
         vtx_normals_.clear();
 
         for (auto &[id, cvtx]: graph_.get_vertices()) {
-            optimizers::nltgv2_l1_graph_regularizer::VertexData &vtx = graph_.get_vertex(id);
+            dgraph::VertexData &vtx = graph_.get_vertex(id);
             vtx_.push_back(vtx.pos);
             vtx_idepths_.push_back(vtx.x * graph_scale_);
             vtx_w1_.push_back(vtx.w1);
             vtx_w2_.push_back(vtx.w2);
         }
-        /*
-        Graph::vertex_iterator vit, end;
-        boost::tie(vit, end) = boost::vertices(graph_);
-        for (; vit != end; ++vit) {
-            const auto &vtx = graph_[*vit];
-            vtx_.push_back(vtx.pos);
-            vtx_idepths_.push_back(vtx.x * graph_scale_);
-            vtx_w1_.push_back(vtx.w1);
-            vtx_w2_.push_back(vtx.w2);
-        }
-         */
+
         graph_mtx_.unlock();
 
-        // getVertexNormals(params_, K_, vtx_, vtx_idepths_, vtx_w1_, vtx_w2_, &vtx_normals_,
-        //                  &stats_);
         getVertexNormals(params_, Kinv_, vtx_, vtx_idepths_, triangles_curr_, &vtx_normals_,
                          &stats_);
 
@@ -874,344 +845,6 @@ namespace flame {
                               width - 2 * border, height - 2 * border - 2 * row_offset);
 
         stereo::EpipolarGeometry<float> epigeo(K, Kinv);
-
-        //   /*==================== Compute photo error ====================*/
-        //   Sophus::SE3f T_ref_to_cmp(fcmp.pose.inverse() * fref.pose);
-        //   epigeo.loadGeometry(T_ref_to_cmp.unit_quaternion(),
-        //                       T_ref_to_cmp.translation());
-
-        //   // Compute photo metric error for high gradient points.
-        //   if (error->empty()) {
-        //     // Initialize output to nans.
-        //     *error = Image1f(height, width, std::numeric_limits<float>::quiet_NaN());
-        //   } else {
-        //     error->setTo(std::numeric_limits<float>::quiet_NaN());
-        //   }
-
-        // #pragma omp parallel for collapse(2) num_threads(params.omp_num_threads) schedule(static, params.omp_chunk_size) // NOLINT
-        //   for (uint32_t ii = border; ii < height - border; ++ii) {
-        //     for (uint32_t jj = border; jj < width - border; ++jj) {
-        //       float idepth = idepthmap(ii, jj);
-
-        //       if (std::isnan(idepth)) {
-        //         continue;
-        //       }
-
-        //       // Project pixel into poseframe.
-        //       cv::Point2f u_ref(jj, ii);
-        //       cv::Point2f u_cmp = epigeo.project(u_ref, idepth);
-
-        //       if (!valid_region.contains(u_cmp)) {
-        //         // Skip if u_cmp is not in the valid region.
-        //         continue;
-        //       }
-
-        //       uint8_t curr_val = fref.img[0](ii, jj);
-        //       float cmp_val = utils::bilinearInterp<uint8_t, float>(fcmp.img[0],
-        //                                                             u_cmp.x,
-        //                                                             u_cmp.y);
-        //       float cost = utils::fast_abs(cmp_val - curr_val);
-        //       (*error)(ii, jj) = cost;
-        //     }
-        //   }
-
-        //   // Compute error integral image.
-        //   Image1f error_int(height, width, std::numeric_limits<float>::quiet_NaN());
-        //   for (int ii = 0; ii < height; ++ii) {
-        //     for (int jj = 0; jj < width; ++jj) {
-        //       float err_ii_jj = (*error)(ii, jj);
-        //       if (std::isnan(err_ii_jj)) {
-        //         err_ii_jj = 0.0f;
-        //       }
-
-        //       if ((ii == 0) || (jj == 0)) {
-        //         error_int(ii, jj) = err_ii_jj;
-        //       } else if (ii == 0) {
-        //         error_int(ii, jj) = err_ii_jj + error_int(ii, jj - 1);
-        //       } else if (jj == 0) {
-        //         error_int(ii, jj) = err_ii_jj + error_int(ii - 1, jj);
-        //       } else {
-        //         error_int(ii, jj) = err_ii_jj +
-        //             error_int(ii - 1, jj) + error_int(ii, jj - 1) -
-        //             error_int(ii - 1, jj - 1);
-        //       }
-        //     }
-        //   }
-
-        //   // Compute box filtered error using integral image.
-        //   Image1f error_smooth(height, width, std::numeric_limits<float>::quiet_NaN());
-        //   int win_size = 11;
-        //   if (width < 640) {
-        //     win_size = 5; // Hack until I make this a param.
-        //   }
-
-        //   int half_win = win_size/2;
-        //   for (int ii = half_win; ii < height - half_win; ++ii) {
-        //     for (int jj = half_win; jj < width - half_win; ++jj) {
-        //       error_smooth(ii, jj) = error_int(ii + half_win, jj + half_win) +
-        //           error_int(ii - half_win, jj - half_win) -
-        //           error_int(ii - half_win, jj + half_win) -
-        //           error_int(ii + half_win, jj - half_win);
-        //       error_smooth(ii, jj) /= win_size * win_size;
-        //     }
-        //   }
-
-        //   // Set error to smoothed error.
-        //   *error = error_smooth;
-
-        //   // Compute error histogram.
-        //   int num_valid = 0;
-        //   std::vector<int> hist(256, 0);
-        //   for (int ii = border; ii < height - border; ++ii) {
-        //     for (int jj = border; jj < width - border; ++jj) {
-        //       float err = (*error)(ii, jj);
-        //       if (!std::isnan(err)) {
-        //         hist[utils::fast_roundf(err)]++;
-        //         num_valid++;
-        //       }
-        //     }
-        //   }
-
-        //   // Get median.
-        //   int median = -1;
-
-        //   float ptile_prob = 0.99;
-        //   int ptile = -1;
-        //   int count = 0;
-        //   for (int ii = 0; ii < hist.size(); ++ii) {
-        //     count += hist[ii];
-        //     if ((median < 0) && (count > 0.5f * num_valid)) {
-        //       median = ii;
-        //     } else if ((ptile < 0) && (count > ptile_prob * num_valid)) {
-        //       ptile = ii;
-        //       break;
-        //     }
-        //   }
-
-        //   float total_error = 0.0f;
-        //   int num_valid_final = 0;
-        //   for (int ii = border; ii < height - border; ++ii) {
-        //     for (int jj = border; jj < width - border; ++jj) {
-        //       float err = (*error)(ii, jj);
-        //       if (!std::isnan(err)) {
-        //         total_error += err;
-        //         num_valid_final++;
-        //       }
-        //     }
-        //   }
-        //   stats->set("total_photo_error", total_error);
-
-        //   float avg_error = 0.0f;
-        //   if (num_valid > 0) {
-        //     avg_error = total_error / num_valid_final;
-        //   }
-        //   stats->set("avg_photo_error", avg_error);
-
-        // /*==================== NLTGV2 Score ====================*/
-        // Image1f idepthmap2(fref.img[0].rows, fref.img[0].cols,
-        //                      std::numeric_limits<float>::quiet_NaN());
-        // Image1f w1_map(fref.img[0].rows, fref.img[0].cols,
-        //                  std::numeric_limits<float>::quiet_NaN());
-        // Image1f w2_map(fref.img[0].rows, fref.img[0].cols,
-        //                  std::numeric_limits<float>::quiet_NaN());
-        // std::vector<bool> vtx_validity(fref.vtx.size(), true);
-        // std::vector<bool> tri_validity(fref.tris.size(), true);
-        // utils::interpolateMesh(fref.tris, fref.vtx, fref.vtx_idepths,
-        //                        vtx_validity, tri_validity, &idepthmap2);
-        // utils::interpolateMesh(fref.tris, fref.vtx, fref.vtx_w1,
-        //                        vtx_validity, tri_validity, &w1_map);
-        // utils::interpolateMesh(fref.tris, fref.vtx, fref.vtx_w2,
-        //                        vtx_validity, tri_validity, &w2_map);
-
-        // float alpha = 1.0f;
-        // float beta = 1.0f;
-        // Image1f nltgv2(height, width, 0.0f);
-        // for (int ii = 0; ii < height - 1; ++ii) {
-        //   for (int jj = 0; jj < width - 1; ++jj) {
-        //     float cost = 0.0f;
-
-        //     float id = idepthmap2(ii, jj);
-        //     float w1 = w1_map(ii, jj);
-        //     float w2 = w2_map(ii, jj);
-
-        //     // Compute contribution from horizontal neighbor.
-        //     float idh = idepthmap2(ii, jj + 1);
-        //     float w1h = w1_map(ii, jj + 1);
-        //     float w2h = w2_map(ii, jj + 1);
-
-        //     cv::Point2f horz_diff(-1.0f, 0.0f);
-        //     cost += alpha * utils::fast_abs(id - idh - w1 * horz_diff.x - w2 * horz_diff.y);
-        //     cost += beta * utils::fast_abs(w1 - w1h) + beta * utils::fast_abs(w2 - w2h);
-
-        //     // Compute contribution from vertical neighbor.
-        //     float idv = idepthmap2(ii + 1, jj);
-        //     float w1v = w1_map(ii + 1, jj);
-        //     float w2v = w2_map(ii + 1, jj);
-
-        //     cv::Point2f vert_diff(0.0f, -1.0f);
-        //     cost += alpha * utils::fast_abs(id - idv - w1 * vert_diff.x - w2 * vert_diff.y);
-        //     cost += beta * utils::fast_abs(w1 - w1v) + beta * utils::fast_abs(w2 - w2v);
-
-        //     if (!std::isnan(cost)) {
-        //       nltgv2(ii, jj) = cost;
-        //     }
-        //   }
-        // }
-
-        // // Blur cost.
-        // Image1f nltgv2_blurred(height, width, 0.0f);
-        // cv::GaussianBlur(nltgv2, nltgv2_blurred, cv::Size(33, 33), 0);
-
-        // /*==================== Detect features with coarse/fine pass ====================*/
-        // // Compute mask where we already have features.
-        // int clvl = params.coarse_level;
-        // int hclvl = height >> clvl;
-        // int wclvl = width >> clvl;
-        // Image1b cmask(hclvl, wclvl, 255);
-
-        // int flvl = params.fine_level;
-        // int hflvl = height >> flvl;
-        // int wflvl = width >> flvl;
-        // Image1b fmask(hflvl, wflvl, 255);
-
-        // for (uint32_t ii = 0; ii < curr_feats.size(); ++ii) {
-        //   // Fill in coarse mask.
-        //   uint32_t x_clvl = curr_feats[ii].x / (1 << clvl);
-        //   uint32_t y_clvl = curr_feats[ii].y / (1 << clvl);
-        //   cmask(y_clvl, x_clvl) = 0;
-
-        //   // Fill in fine mask.
-        //   uint32_t x_flvl = curr_feats[ii].x / (1 << flvl);
-        //   uint32_t y_flvl = curr_feats[ii].y / (1 << flvl);
-        //   fmask(y_flvl, x_flvl) = 0;
-        // }
-
-        // // Load epipolar geometry from prev to ref.
-        // Sophus::SE3f T_ref_to_prev(fprev.pose.inverse() * fref.pose);
-        // epigeo.loadGeometry(T_ref_to_prev.unit_quaternion(),
-        //                     T_ref_to_prev.translation());
-
-        // // Coarse pass.
-        // Image1f best_gradsc(hclvl, wclvl, 0.0f);
-        // std::vector<cv::Point2f> best_pxc(hclvl * wclvl);
-        // float grad_thresh2 = params.min_grad_mag * params.min_grad_mag;
-        // for (uint32_t ii = border; ii < height - border; ++ii) {
-        //   for (uint32_t jj = border; jj < width - border; ++jj) {
-        //     int ii_flvl = ii >> flvl;
-        //     int jj_flvl = jj >> flvl;
-
-        //     if (fmask(ii_flvl, jj_flvl) == 0) {
-        //       // Already have feature here.
-        //       continue;
-        //     }
-
-        //     // Check gradient magnitude.
-        //     float gx = fref.gradx[0](ii, jj);
-        //     float gy = fref.grady[0](ii, jj);
-        //     float gmag2 = gx*gx + gy*gy;
-        //     if (gmag2 < grad_thresh2) {
-        //       continue;
-        //     }
-
-        //     // Check gradient magnitude in epipolar direction.
-        //     cv::Point2f epi_ref;
-        //     epigeo.referenceEpiline(cv::Point2f(ii, jj), &epi_ref);
-
-        //     float epigrad2 = gx * epi_ref.x + gy * epi_ref.y;
-        //     epigrad2 *= epigrad2;
-
-        //     if (epigrad2 < grad_thresh2) {
-        //       // Gradient isn't large enough, skip.
-        //       continue;
-        //     }
-
-        //     int ii_clvl = ii >> clvl;
-        //     int jj_clvl = jj >> clvl;
-        //     int idx_clvl = ii_clvl * wclvl + jj_clvl;
-
-        //     // Fill in best gradients.
-        //     if (epigrad2 >= best_gradsc(ii_clvl, jj_clvl)) {
-        //       best_gradsc(ii_clvl, jj_clvl) = epigrad2;
-        //       best_pxc[idx_clvl] = cv::Point2f(jj, ii);
-        //     }
-        //   }
-        // }
-
-        // // Now extract detections of grid.
-        // std::vector<cv::KeyPoint> kps;
-        // for (int ii = 0; ii < hclvl; ++ii) {
-        //   for (int jj = 0; jj < wclvl; ++jj) {
-        //     int idx = ii * wclvl + jj;
-        //     if ((cmask(ii, jj) > 0) && (best_gradsc(ii, jj) > 0)) {
-        //       kps.push_back(cv::KeyPoint(best_pxc[idx], 1));
-
-        //       int ii_flvl = static_cast<int>(best_pxc[idx].y) >> flvl;
-        //       int jj_flvl = static_cast<int>(best_pxc[idx].x) >> flvl;
-        //       fmask(ii_flvl, jj_flvl) = 0;
-        //     }
-        //   }
-        // }
-
-        // // Fine pass.
-        // Image1f score(height, width, std::numeric_limits<float>::quiet_NaN());
-        // Image1f best_gradsf(hflvl, wflvl, 0.0f);
-        // std::vector<cv::Point2f> best_pxf(hflvl * wflvl);
-        // for (uint32_t ii = border; ii < height - border; ++ii) {
-        //   for (uint32_t jj = border; jj < width - border; ++jj) {
-        //     int ii_flvl = ii >> flvl;
-        //     int jj_flvl = jj >> flvl;
-        //     int idx_flvl = ii_flvl * wflvl + jj_flvl;
-
-        //     if (fmask(ii_flvl, jj_flvl) == 0) {
-        //       // Already have feature here.
-        //       continue;
-        //     }
-
-        //     // Check gradient magnitude.
-        //     float gx = fref.gradx[0](ii, jj);
-        //     float gy = fref.grady[0](ii, jj);
-        //     float gmag2 = gx*gx + gy*gy;
-        //     if (gmag2 < grad_thresh2) {
-        //       continue;
-        //     }
-
-        //     // Check gradient magnitude in epipolar direction.
-        //     cv::Point2f epi_ref;
-        //     epigeo.referenceEpiline(cv::Point2f(ii, jj), &epi_ref);
-
-        //     float epigrad2 = gx * epi_ref.x + gy * epi_ref.y;
-        //     epigrad2 *= epigrad2;
-
-        //     if (epigrad2 < grad_thresh2) {
-        //       // Gradient isn't large enough, skip.
-        //       continue;
-        //     }
-
-        //     // Grab nltgv2 score.
-        //     float nltgv2_cost = nltgv2_blurred(ii, jj);
-        //     if (nltgv2_cost < 0.005f) {
-        //       continue;
-        //     }
-
-        //     score(ii, jj) = nltgv2_cost;
-
-        //     // Fill in best gradients.
-        //     if (nltgv2_cost >= best_gradsf(ii_flvl, jj_flvl)) {
-        //       best_gradsf(ii_flvl, jj_flvl) = nltgv2_cost;
-        //       best_pxf[idx_flvl] = cv::Point2f(jj, ii);
-        //     }
-        //   }
-        // }
-
-        // // Now extract detections of grid.
-        // for (int ii = 0; ii < hflvl; ++ii) {
-        //   for (int jj = 0; jj < wflvl; ++jj) {
-        //     int idx = ii * wflvl + jj;
-        //     if ((fmask(ii, jj) > 0) && (best_gradsf(ii, jj) > 0)) {
-        //       kps.push_back(cv::KeyPoint(best_pxf[idx], 1));
-        //     }
-        //   }
-        // }
 
         /*==================== Detect features on grid with single pass ====================*/
         // Compute mask where we already have features.
@@ -1753,26 +1386,6 @@ namespace flame {
         }
 
         *flow = u_cmp - offset;
-
-        // if (params.debug_draw_matches) {
-        //   cv::Point2i flowi(flow->x + 0.5f, flow->y + 0.5f);
-        //   // cv::circle(*debug_img, cv::Point2i(flow->x + 0.5f, flow->y + 0.5f),
-        //   //            2, cv::Scalar(0, 255, 0));
-
-        //   // cv::Vec3b color(0, 255, 0);
-
-        //   cv::Vec3b color = utils::blendColor(cv::Vec3b(255, 0, 0),
-        //                                       cv::Vec3b(0, 255, 0),
-        //                                       feat->num_updates, 0, 30);
-        //   // cv::Vec3b color = utils::jet(feat->num_updates, 0, 30);
-        //   cv::rectangle(*debug_img, flowi - debug_feature_offset,
-        //                 flowi + debug_feature_offset,
-        //                 cv::Scalar(color[0], color[1], color[2]), -1);
-
-        //   auto colormap = [&color](float a) { return color; };
-        //   utils::applyColorMapLine(u_start, u_end, 1, 1, colormap, 0.5, debug_img);
-        // }
-
         return true;
     }
 
@@ -1881,7 +1494,6 @@ namespace flame {
                    stats->timings("project_features"));
         }
 
-        return;
     }
 
     void Flame::projectGraph(const Params &params,
@@ -1939,48 +1551,13 @@ namespace flame {
                 }
             }
         }
-        /*
-        Graph::vertex_iterator vit, end;
-        boost::tie(vit, end) = boost::vertices(*graph);
-        for (; vit != end; ++vit) {
-            auto &vtx = (*graph)[*vit];
 
-            // Project into new frame.
-            cv::Point2f u_new;
-            float idepth_new;
-            epigeo.project(vtx.pos, vtx.x * graph_scale, &u_new, &idepth_new);
-            vtx.pos = u_new;
-            vtx.x = idepth_new / graph_scale;
-
-            if (!valid_region.contains(u_new) || (idepth_new < 0.0f)) {
-                // Projected outside of image or behind camera.
-                vtx_to_remove.insert(*vit);
-                continue;
-            }
-
-            if (params.do_grad_check_after_projection) {
-                // Check gradient.
-                float gx = utils::bilinearInterp<float, float>(fnew.gradx[0], u_new.x,
-                                                               u_new.y);
-                float gy = utils::bilinearInterp<float, float>(fnew.grady[0], u_new.x,
-                                                               u_new.y);
-                if (gx * gx + gy * gy < params.min_grad_mag * params.min_grad_mag) {
-                    // Projected to a point without gradient.
-                    vtx_to_remove.insert(*vit);
-                }
-            }
-        }
-*/
         // Remove marked vertices.
         for (auto &vtx: vtx_to_remove) {
             int feat_id = (*vtx_to_feat)[vtx];
             feat_to_vtx->erase(feat_id);
             vtx_to_feat->erase(vtx);
-
-            //boost::clear_vertex(vtx, *graph); // Remove connected edges.
-            //boost::remove_vertex(vtx, *graph); // Remove vertex.
             graph->remove_vertex(vtx);
-
         }
 
         stats->tock("project_graph");
@@ -1989,7 +1566,6 @@ namespace flame {
                    stats->timings("project_graph"));
         }
 
-        return;
     }
 
     bool Flame::syncGraph(const Params &params,
@@ -2038,10 +1614,6 @@ namespace flame {
         std::unordered_set<VertexHandle> vtx_to_remove;
 
         /*==================== Update existing vertices ====================*/
-        //Graph::vertex_iterator vit, end;
-        //boost::tie(vit, end) = boost::vertices(*graph);
-        //for (; vit != end; ++vit) {
-
         for (auto &[id, cvtx]: graph->get_vertices()) {
             optimizers::nltgv2_l1_graph_regularizer::VertexData &vtx = graph->get_vertex(id);
             // First check if this vertex's associated feature is still valid.
@@ -2076,8 +1648,6 @@ namespace flame {
         /*==================== Remove marked vertices ====================*/
 
         for (auto vtx: vtx_to_remove) {
-            //boost::clear_vertex(vtx, *graph); // Remove connected edges.
-            //boost::remove_vertex(vtx, *graph); // Remove vertex.
             graph->remove_vertex(vtx);
             int feat_id = vtx_to_feat->at(vtx);
             feat_to_vtx->erase(feat_id);
@@ -2089,15 +1659,12 @@ namespace flame {
             const FeatureWithIDepth feat = feats_in_curr[feat_id_to_idx[feat_id]];
 
             // Add new vertex to graph.
-            //VertexHandle vtx_ii = boost::add_vertex(dgraph::VertexData(), *graph);
             static int32_t i = 0;
             VertexHandle vtx_ii = graph->add_vertex(dgraph::VertexData(), i++);
             (*feat_to_vtx)[feat_id] = vtx_ii;
             (*vtx_to_feat)[vtx_ii] = feat_id;
 
             // Initialize vertex data.
-            //auto &vdata = (*graph)[vtx_ii];
-
             auto& vdata = graph->get_vertex(vtx_ii);
             vdata.pos = feat.xy;
             vdata.data_term = feat.idepth_mu / graph_scale;
@@ -2111,7 +1678,6 @@ namespace flame {
 
         /*==================== Retriangulate ====================*/
         std::vector<cv::Point2f> vtx_xy;
-        // vtx_xy.reserve(boost::num_vertices(*graph));
         vtx_xy.reserve(graph->get_vertices().size());
         VtxIdxToHandle vtx_idx_to_handle;
 
@@ -2121,16 +1687,6 @@ namespace flame {
             vtx_idx_to_handle[count] = id;
             count++;
         }
-        /*
-        boost::tie(vit, end) = boost::vertices(*graph);
-        int count = 0;
-        for (; vit != end; ++vit) {
-            auto &vtx = (*graph)[*vit];
-            vtx_xy.push_back(vtx.pos);
-            vtx_idx_to_handle[count] = *vit;
-            count++;
-        }
-         */
 
         if (vtx_xy.size() < 3) {
             // Not enough detections.
@@ -2146,18 +1702,10 @@ namespace flame {
         /*==================== Update graph edges ====================*/
         // Set all edges to invalid.
         for (const auto &[vertex_ids, cedge]: graph->get_edges()) {
-            //dgraph::VertexData &vtx_ii = graph->get_vertex(vertex_ids.first);
-            //dgraph::VertexData &vtx_jj = graph->get_vertex(vertex_ids.second);
             dgraph::EdgeData &edge = graph->get_edge(vertex_ids.first, vertex_ids.second);
             edge.valid = false;
         }
-        /*
-        Graph::edge_iterator eit, eend;
-        boost::tie(eit, eend) = boost::edges(*graph);
-        for (; eit != eend; ++eit) {
-            (*graph)[*eit].valid = false;
-        }
-        */
+
         // Add new edges.
         for (int ii = 0; ii < triangulator->edges().size(); ++ii) {
             VertexHandle vtx_id_ii = vtx_idx_to_handle[triangulator->edges()[ii][0]];
@@ -2175,17 +1723,8 @@ namespace flame {
             if (!graph->has_edge(vtx_id_ii, vtx_id_jj)) {
                 graph->add_edge(vtx_id_ii, vtx_id_jj, dgraph::EdgeData());
             }
-            /*
-            if (!boost::edge(vtx_ii, vtx_jj, *graph).second) {
-                // Add edge to graph if new.
-                boost::add_edge(vtx_ii, vtx_jj, dgraph::EdgeData(), *graph);
-            }
-            */
-            // Initialize edge data.
 
             dgraph::EdgeData &edata = graph->get_edge(vtx_id_ii, vtx_id_jj);
-            //const auto &epair = boost::edge(vtx_ii, vtx_jj, *graph);
-            //auto &edata = (*graph)[epair.first];
             edata.alpha = 1.0f / edge_length;
             edata.beta = 1.0f;
             edata.valid = true;
@@ -2197,22 +1736,9 @@ namespace flame {
 
         edges_to_remove.reserve(graph->get_edges().size());
         for (const auto &[vertex_ids, cedge]: graph->get_edges()) {
-            //dgraph::VertexData &vtx_ii = graph->get_vertex(vertex_ids.first);
-            //dgraph::VertexData &vtx_jj = graph->get_vertex(vertex_ids.second);
             if (!cedge.valid)
                 edges_to_remove.emplace_back(vertex_ids.first, vertex_ids.second);
         }
-
-
-
-        /*
-        edges_to_remove.reserve(boost::num_edges(*graph));
-        boost::tie(eit, eend) = boost::edges(*graph);
-        for (; eit != eend; ++eit) {
-            if (!(*graph)[*eit].valid) {
-                edges_to_remove.push_back(*eit);
-            }
-        }*/
 
         for (auto &edge: edges_to_remove) {
             graph->remove_edge(edge.first, edge.second);
@@ -2224,7 +1750,6 @@ namespace flame {
         // initialize.
         for (int feat_id: feats_to_update) {
             VertexHandle vtx_ii = (*feat_to_vtx)[feat_id];
-            //auto &vdata = (*graph)[vtx_ii];
             auto &vdata = graph->get_vertex(vtx_ii);
 
             float init_idepth = feats_in_curr[feat_id_to_idx[feat_id]].idepth_mu;
@@ -2247,19 +1772,6 @@ namespace flame {
                             valid_neighbor_count++;
                         }
                     }
-                    /*
-                    Graph::adjacency_iterator nit, end;
-                    boost::tie(nit, end) = boost::adjacent_vertices(vtx_ii, (*graph));
-
-                    for (; nit != end; ++nit) {
-                        const auto &vneighdata = (*graph)[*nit];
-                        if (vneighdata.data_weight > 0.0f) {
-                            idepth_sum += vneighdata.x * graph_scale;
-                            valid_neighbor_count++;
-                        }
-                    }
-                     */
-
                     if (valid_neighbor_count > 0) {
                         init_idepth = idepth_sum / valid_neighbor_count;
                     } else {
@@ -2498,11 +2010,7 @@ namespace flame {
 
         // Blend source image and score image.
         *debug_img = 0.7 * (*debug_img) + 0.3 * img_rgb;
-
-        // cv::drawKeypoints(*debug_img, kps, *debug_img);
-
         if (params.debug_flip_images) {
-            // Flip image for display.
             cv::flip(*debug_img, *debug_img, -1);
         }
 
@@ -2532,9 +2040,6 @@ namespace flame {
                               const std::vector<float> &idepths,
                               utils::StatsTracker *stats,
                               Image3b *debug_img) {
-        // auto colormap = [&params](float v) {
-        //   return utils::idepthColor(v * params.scene_color_scale);
-        // };
         auto colormap = [&params](float v) {
             return utils::jet(v * params.scene_color_scale, 0.0f, 2.0f);
         };
@@ -2583,35 +2088,14 @@ namespace flame {
 
             cv::Point2i xyi(feat.xy.x + 0.5f,
                             feat.xy.y + 0.5f);
-            // Color by idepth.
-            // cv::Vec3b color = utils::idepthColor(feat.idepth_mu *
-            //                                      params.scene_color_scale);
             cv::Vec3b color = utils::jet(feat.idepth_mu * params.scene_color_scale,
                                          0.0f, 2.0f);
 
-            // Color by variance.
-            // cv::Vec3b color = utils::jet(sqrt(1.0f/feat.idepth_var),
-            //                              sqrt(1.0f/params.idepth_var_max),
-            //                              10*sqrt(1.0f/params.idepth_var_max_graph));
-
-            // Color by number of successful updates.
-            // cv::Vec3b color = utils::jet(feat.num_updates, 0, 30);
-
-            // Color by feature ID.
-            // cv::Vec3b color((879879*feat.id) % 255,
-            //                 (25234543*feat.id) % 255,
-            //                 (54645376*feat.id) % 255);
-
             if (feat.idepth_var < params.idepth_var_max_graph) {
-                // cv::circle(*debug_img, xyi, 3, cv::Scalar(color[0], color[1], color[2]), -1);
                 cv::rectangle(*debug_img, xyi - cv::Point2i(2, 2), xyi + cv::Point2i(2, 2),
                               cv::Scalar(color[0], color[1], color[2]), -1);
                 num_converged++;
             } else {
-                // Color unconverged features black.
-                // cv::circle(*debug_img, xyi, 3, cv::Scalar(0, 0, 0));
-                // cv::rectangle(*debug_img, xyi - cv::Point2i(2, 2), xyi + cv::Point2i(2, 2),
-                //               cv::Scalar(0, 0, 0));
                 num_valid++;
             }
         }
