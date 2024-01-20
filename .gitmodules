@@ -1,0 +1,3 @@
+[submodule "external/graaf"]
+	path = external/graaf
+	url = https://github.com/bobluppes/graaf

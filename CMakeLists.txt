@@ -27,7 +27,9 @@ include_directories(SYSTEM src
         ${OpenCV_INCLUDE_DIRS}
         ${Boost_INCLUDE_DIRS}
         ${EIGEN3_INCLUDE_DIRS}
-        ${Sophus_INCLUDE_DIRS})
+        ${Sophus_INCLUDE_DIRS}
+        ./external/graaf/include
+)
 
 # Build the library
 add_subdirectory(src)
